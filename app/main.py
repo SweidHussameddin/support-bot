@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from app.chat import ChatReply, ChatService
 from app.config import settings
 from app.index import Index
+from app.llm import ModelUnavailable
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 log = logging.getLogger("support-bot")
@@ -32,7 +33,7 @@ async def lifespan(app: FastAPI):
         raise RuntimeError("no index found, run `uv run support-bot-ingest` first")
     index = Index.load(settings.index_dir)
     app.state.chat = ChatService(index)
-    log.info("index loaded: %d chunks, model %s", len(index.chunks), settings.openrouter_model)
+    log.info("index loaded: %d chunks, models %s", len(index.chunks), settings.models)
     yield
 
 
@@ -57,7 +58,7 @@ def demo_site() -> FileResponse:
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"status": "ok", "model": settings.openrouter_model, "chunks": len(app.state.chat.index.chunks)}
+    return {"status": "ok", "models": settings.models, "chunks": len(app.state.chat.index.chunks)}
 
 
 @app.post("/api/chat", response_model=ChatReply)
@@ -65,6 +66,12 @@ def chat(req: ChatRequest) -> ChatReply:
     session_id = req.session_id or uuid.uuid4().hex
     try:
         return app.state.chat.reply(session_id, req.message.strip())
+    except ModelUnavailable as e:
+        log.error("model unavailable: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail="The assistant is temporarily unavailable. Please try again in a minute.",
+        ) from e
     except RuntimeError as e:  # missing key etc.
         raise HTTPException(status_code=503, detail=str(e)) from e
 

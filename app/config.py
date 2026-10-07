@@ -13,7 +13,10 @@ class Settings(BaseSettings):
     # Model provider. OpenRouter speaks the OpenAI API, so any OpenAI-compatible endpoint works.
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_model: str = "google/gemma-4-31b-it:free"
+    # Comma-separated list, tried in order when a model is rate-limited or down.
+    openrouter_model: str = (
+        "nvidia/nemotron-3-super-120b-a12b:free,google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free"
+    )
     llm_temperature: float = 0.1
     llm_max_tokens: int = 600
 
@@ -34,6 +37,11 @@ class Settings(BaseSettings):
     handover_webhook_url: str = ""
     history_turns: int = 6  # user+assistant messages kept per session
     app_title: str = "support-bot demo"
+
+
+    @property
+    def models(self) -> list[str]:
+        return [m.strip() for m in self.openrouter_model.split(",") if m.strip()]
 
 
 settings = Settings()
