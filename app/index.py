@@ -14,11 +14,25 @@ from rank_bm25 import BM25Okapi
 
 from app.chunking import Chunk
 
-_TOKEN = re.compile(r"[a-z0-9äöüß]+(?:[.,][0-9]+)?")
+_TOKEN = re.compile(r"[a-z0-9äöüß]+(?:[.,][0-9]+)*")
+_STOP = frozenset(
+    ["a", "an", "the", "and", "or", "of", "to", "in", "on", "at", "for", "by", "with", "from", "is", "are", "was", "were", "be", "do", "does", "did", "you", "your", "we", "our", "us", "i", "my", "it", "its", "this", "that", "these", "those", "can", "could", "would", "should", "will", "there", "here", "what", "when", "where", "which", "who", "how", "much", "many", "any", "some", "also", "not", "no", "yes", "please", "ich", "wir", "sie", "ihr", "du", "der", "die", "das", "ein", "eine", "und", "oder", "von", "zu", "in", "auf", "für", "mit", "ist", "sind", "habt", "haben", "kann", "wann", "wo", "wie", "was"]
+)
+
+
+def _stem(tok: str) -> str:
+    """Very light English stemming so 'weekends' matches 'weekend' and 'pumps' matches 'pump'."""
+    if len(tok) > 4 and tok.endswith("ies"):
+        return tok[:-3] + "y"
+    if len(tok) > 4 and tok.endswith("es") and tok[-3] in "sxz":
+        return tok[:-2]
+    if len(tok) > 3 and tok.endswith("s") and not tok.endswith("ss"):
+        return tok[:-1]
+    return tok
 
 
 def tokenize(text: str) -> list[str]:
-    return _TOKEN.findall(text.lower())
+    return [_stem(t) for t in _TOKEN.findall(text.lower()) if t not in _STOP]
 
 
 class SearchHit:
@@ -66,13 +80,14 @@ class Index:
         bm25 = self._bm25.get_scores(tokenize(query))
         bm25_rank = np.argsort(-bm25)
 
-        # reciprocal rank fusion; k=60 is the usual constant
+        # weighted reciprocal rank fusion; k=60 is the usual constant. Dense gets more weight:
+        # it understands paraphrases, BM25 is there to pin exact numbers and codes.
         fused: dict[int, float] = {}
         for rank, i in enumerate(dense_rank[: top_k * 3]):
-            fused[int(i)] = fused.get(int(i), 0.0) + 1.0 / (60 + rank)
+            fused[int(i)] = fused.get(int(i), 0.0) + 1.2 / (60 + rank)
         for rank, i in enumerate(bm25_rank[: top_k * 3]):
             if bm25[i] > 0:
-                fused[int(i)] = fused.get(int(i), 0.0) + 1.0 / (60 + rank)
+                fused[int(i)] = fused.get(int(i), 0.0) + 0.8 / (60 + rank)
         best = sorted(fused.items(), key=lambda kv: -kv[1])[:top_k]
         return [SearchHit(self.chunks[i], s) for i, s in best]
 

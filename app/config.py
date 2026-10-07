@@ -17,14 +17,14 @@ class Settings(BaseSettings):
     openrouter_model: str = (
         "nvidia/nemotron-3-super-120b-a12b:free,google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free"
     )
-    llm_temperature: float = 0.1
+    llm_temperature: float = 0.0
     llm_max_tokens: int = 600
 
     # Retrieval
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     chunk_size: int = 900
     chunk_overlap: int = 150
-    top_k: int = 5
+    top_k: int = 6
     min_score: float = 0.015  # fused retrieval score below which we do not even ask the model
 
     # Paths
