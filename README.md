@@ -51,7 +51,9 @@ No framework, no build step, styles are scoped. The widget shows the answer, the
 
 ## Your documents
 
-Drop PDFs, Markdown or text files into `data/docs/` and run the ingest again. Page numbers come from the PDF; Markdown files count as one page. The sample documents describe a fictional heating company and exist only for the demo.
+Drop PDFs, Markdown or text files into `data/docs/` and run the ingest again. Page numbers come from the PDF; Markdown files count as one page.
+
+The sample documents describe a fictional heating company and exist only for the demo. Their sources are Markdown files in `data/docs-src/`; `uv run python scripts/build_pdfs.py` renders them to PDFs with a letterhead and one section per page, using headless Chrome.
 
 ## Configuration
 
